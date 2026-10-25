@@ -2,7 +2,7 @@
   "name": "Omniflow fullstack Product",
   "version": "1.0.0",
   "description": "",
-  "main": "server.ts",
+  "main": "backend/server.ts",
   "scripts": {
     "dev": "tsx watch backend/server.ts",
     "start": "tsx backend/server.ts",
@@ -51,7 +51,7 @@
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
     "postgres": "^3.4.5",
-    "stripe": "^19.1.0",
+    "tsx": "^4.7.0",
     "zod": "^3.24.4"
   },
   "devDependencies": {
@@ -60,7 +60,6 @@
     "@types/multer": "^1.4.12",
     "eslint": "^9.18.0",
     "globals": "^15.9.0",
-    "tsx": "^4.7.0",
     "typescript": "^5.3.3",
     "typescript-eslint": "^8.0.1"
   }
