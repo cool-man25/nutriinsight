@@ -61,33 +61,25 @@ app.use('/api/nutrition', nutritionRoutes);
 
 /**
  * Static Files (after API routes)
+ * - /assets: 带内容哈希的构建产物，可长期缓存（immutable）
+ * - 根路径: index.html 与其他公共文件，协商缓存保证发版即生效
  */
-app.use(
-  express.static(REACT_BUILD_FOLDER, {
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith('.css') || filePath.endsWith('.js')) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-      }
-    },
-  })
-);
-
 app.use(
   '/assets',
   express.static(path.join(REACT_BUILD_FOLDER, 'assets'), {
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith('.css') || filePath.endsWith('.js')) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-      }
-    },
+    immutable: true,
+    maxAge: '30d',
   })
 );
 
+app.use(express.static(REACT_BUILD_FOLDER));
+
 app.use('/api/upload', uploadRoutes);
+
+// 未匹配到的 /api 路由返回 JSON 404，避免落入 SPA 兜底返回 HTML
+app.use('/api', (_req, res) => {
+  res.status(404).json({ success: false, error: '接口不存在' });
+});
 
 /**
  * SPA Fallback Route
