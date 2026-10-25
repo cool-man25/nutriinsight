@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -43,6 +43,12 @@ interface ChatCompletionResponse {
 
 const DEFAULT_MODEL_NAME = 'deepseek-chat';
 
+/** 瞬时错误（网络抖动/超时/限流/服务端临时故障）可安全重试 */
+function isTransientError(error: unknown): error is AxiosError {
+  if (!axios.isAxiosError(error)) return false;
+  return !error.response || error.response.status === 429 || error.response.status >= 500;
+}
+
 class AIService {
   private apiKey: string;
   private baseUrl: string;
@@ -65,24 +71,34 @@ class AIService {
       );
     }
     try {
-      const response = await axios.post(
-        `${this.baseUrl}/chat/completions`,
-        {
-          model: request.model || process.env.DEEPSEEK_MODEL || DEFAULT_MODEL_NAME,
-          messages: request.messages,
-          stream: false,
-          ...(request.max_tokens !== undefined && { max_tokens: request.max_tokens }),
-          ...(request.temperature !== undefined && { temperature: request.temperature }),
-          ...(request.jsonMode && { response_format: { type: 'json_object' } }),
+      const url = `${this.baseUrl}/chat/completions`;
+      const payload = {
+        model: request.model || process.env.DEEPSEEK_MODEL || DEFAULT_MODEL_NAME,
+        messages: request.messages,
+        stream: false,
+        ...(request.max_tokens !== undefined && { max_tokens: request.max_tokens }),
+        ...(request.temperature !== undefined && { temperature: request.temperature }),
+        ...(request.jsonMode && { response_format: { type: 'json_object' } }),
+      };
+      const options = {
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
         },
-        {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 60000,
-        },
-      );
+        timeout: 60000,
+      };
+
+      let response;
+      try {
+        response = await axios.post(url, payload, options);
+      } catch (error) {
+        if (!isTransientError(error)) throw error;
+        console.warn(
+          `DeepSeek 瞬时错误（${error.response?.status ?? '网络错误/超时'}），1.5s 后重试一次`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        response = await axios.post(url, payload, options);
+      }
 
       return response.data;
     } catch (error) {
